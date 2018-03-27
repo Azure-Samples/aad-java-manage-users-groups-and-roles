@@ -24,6 +24,8 @@ import com.microsoft.azure.management.batch.Application;
 import com.microsoft.azure.management.batch.ApplicationPackage;
 import com.microsoft.azure.management.batch.BatchAccount;
 import com.microsoft.azure.management.batch.BatchAccountKeys;
+import com.microsoft.azure.management.batchai.BatchAICluster;
+import com.microsoft.azure.management.batchai.BatchAIJob;
 import com.microsoft.azure.management.compute.AvailabilitySet;
 import com.microsoft.azure.management.compute.DataDisk;
 import com.microsoft.azure.management.compute.ImageDataDisk;
@@ -74,6 +76,9 @@ import com.microsoft.azure.management.graphrbac.implementation.PermissionInner;
 import com.microsoft.azure.management.keyvault.AccessPolicy;
 import com.microsoft.azure.management.keyvault.Vault;
 import com.microsoft.azure.management.locks.ManagementLock;
+import com.microsoft.azure.management.monitor.DiagnosticSetting;
+import com.microsoft.azure.management.monitor.LogSettings;
+import com.microsoft.azure.management.monitor.MetricSettings;
 import com.microsoft.azure.management.msi.Identity;
 import com.microsoft.azure.management.network.ApplicationGateway;
 import com.microsoft.azure.management.network.ApplicationGatewayBackend;
@@ -140,10 +145,18 @@ import com.microsoft.azure.management.servicebus.Topic;
 import com.microsoft.azure.management.servicebus.TopicAuthorizationRule;
 import com.microsoft.azure.management.sql.ElasticPoolActivity;
 import com.microsoft.azure.management.sql.ElasticPoolDatabaseActivity;
+import com.microsoft.azure.management.sql.PartnerInfo;
 import com.microsoft.azure.management.sql.SqlDatabase;
+import com.microsoft.azure.management.sql.SqlDatabaseMetric;
+import com.microsoft.azure.management.sql.SqlDatabaseMetricValue;
+import com.microsoft.azure.management.sql.SqlDatabaseUsageMetric;
 import com.microsoft.azure.management.sql.SqlElasticPool;
+import com.microsoft.azure.management.sql.SqlFailoverGroup;
 import com.microsoft.azure.management.sql.SqlFirewallRule;
 import com.microsoft.azure.management.sql.SqlServer;
+import com.microsoft.azure.management.sql.SqlServerKey;
+import com.microsoft.azure.management.sql.SqlSubscriptionUsageMetric;
+import com.microsoft.azure.management.sql.SqlVirtualNetworkRule;
 import com.microsoft.azure.management.storage.StorageAccount;
 import com.microsoft.azure.management.storage.StorageAccountEncryptionStatus;
 import com.microsoft.azure.management.storage.StorageAccountKey;
@@ -1362,9 +1375,11 @@ public final class Utils {
         String jdkPath = System.getProperty("java.home");
         if (jdkPath != null && !jdkPath.isEmpty()) {
             jdkPath = jdkPath.concat("\\bin");
-        }
-        if (new File(jdkPath).isDirectory()) {
-            command = String.format("%s%s%s", jdkPath, File.separator, command);
+            if (new File(jdkPath).isDirectory()) {
+                command = String.format("%s%s%s", jdkPath, File.separator, command);
+            }
+        } else {
+            return;
         }
 
         // Create Pfx file
@@ -1501,6 +1516,126 @@ public final class Utils {
                 .append("\n\tSqlServer Name: ").append(firewallRule.sqlServerName())
                 .append("\n\tStart IP Address of the firewall rule: ").append(firewallRule.startIPAddress())
                 .append("\n\tEnd IP Address of the firewall rule: ").append(firewallRule.endIPAddress());
+
+        System.out.println(builder.toString());
+    }
+
+    /**
+     * Prints information for the passed virtual network rule.
+     * @param virtualNetworkRule virtual network rule to be printed.
+     */
+    public static void print(SqlVirtualNetworkRule virtualNetworkRule) {
+        StringBuilder builder = new StringBuilder().append("SQL virtual network rule: ").append(virtualNetworkRule.id())
+            .append("Name: ").append(virtualNetworkRule.name())
+            .append("\n\tResource group: ").append(virtualNetworkRule.resourceGroupName())
+            .append("\n\tSqlServer Name: ").append(virtualNetworkRule.sqlServerName())
+            .append("\n\tSubnet ID: ").append(virtualNetworkRule.subnetId())
+            .append("\n\tState: ").append(virtualNetworkRule.state());
+
+        System.out.println(builder.toString());
+    }
+
+    /**
+     * Prints information for the passed SQL subscription usage metric.
+     * @param subscriptionUsageMetric metric to be printed.
+     */
+    public static void print(SqlSubscriptionUsageMetric subscriptionUsageMetric) {
+        StringBuilder builder = new StringBuilder().append("SQL Subscription Usage Metric: ").append(subscriptionUsageMetric.id())
+            .append("Name: ").append(subscriptionUsageMetric.name())
+            .append("\n\tDisplay Name: ").append(subscriptionUsageMetric.displayName())
+            .append("\n\tCurrent Value: ").append(subscriptionUsageMetric.currentValue())
+            .append("\n\tLimit: ").append(subscriptionUsageMetric.limit())
+            .append("\n\tUnit: ").append(subscriptionUsageMetric.unit())
+            .append("\n\tType: ").append(subscriptionUsageMetric.type());
+
+        System.out.println(builder.toString());
+    }
+
+    /**
+     * Prints information for the passed SQL database usage metric.
+     * @param dbUsageMetric metric to be printed.
+     */
+    public static void print(SqlDatabaseUsageMetric dbUsageMetric) {
+        StringBuilder builder = new StringBuilder().append("SQL Database Usage Metric")
+            .append("Name: ").append(dbUsageMetric.name())
+            .append("\n\tResource Name: ").append(dbUsageMetric.resourceName())
+            .append("\n\tDisplay Name: ").append(dbUsageMetric.displayName())
+            .append("\n\tCurrent Value: ").append(dbUsageMetric.currentValue())
+            .append("\n\tLimit: ").append(dbUsageMetric.limit())
+            .append("\n\tUnit: ").append(dbUsageMetric.unit())
+            .append("\n\tNext Reset Time: ").append(dbUsageMetric.nextResetTime());
+
+        System.out.println(builder.toString());
+    }
+
+    /**
+     * Prints information for the passed SQL database metric.
+     * @param dbMetric metric to be printed.
+     */
+    public static void print(SqlDatabaseMetric dbMetric) {
+        StringBuilder builder = new StringBuilder().append("SQL Database Metric")
+            .append("Name: ").append(dbMetric.name())
+            .append("\n\tStart Time: ").append(dbMetric.startTime())
+            .append("\n\tEnd Time: ").append(dbMetric.endTime())
+            .append("\n\tTime Grain: ").append(dbMetric.timeGrain())
+            .append("\n\tUnit: ").append(dbMetric.unit());
+        for (SqlDatabaseMetricValue metricValue : dbMetric.metricValues()) {
+            builder
+                .append("\n\tMetric Value: ")
+                .append("\n\t\tCount: ").append(metricValue.count())
+                .append("\n\t\tAverage: ").append(metricValue.average())
+                .append("\n\t\tMaximum: ").append(metricValue.maximum())
+                .append("\n\t\tMinimum: ").append(metricValue.minimum())
+                .append("\n\t\tTimestamp: ").append(metricValue.timestamp())
+                .append("\n\t\tTotal: ").append(metricValue.total());
+        }
+
+        System.out.println(builder.toString());
+    }
+
+    /**
+     * Prints information for the passed Failover Group.
+     * @param failoverGroup the SQL Failover Group to be printed.
+     */
+    public static void print(SqlFailoverGroup failoverGroup) {
+        StringBuilder builder = new StringBuilder().append("SQL Failover Group: ").append(failoverGroup.id())
+            .append("Name: ").append(failoverGroup.name())
+            .append("\n\tResource group: ").append(failoverGroup.resourceGroupName())
+            .append("\n\tSqlServer Name: ").append(failoverGroup.sqlServerName())
+            .append("\n\tRead-write endpoint policy: ").append(failoverGroup.readWriteEndpointPolicy())
+            .append("\n\tData loss grace period: ").append(failoverGroup.readWriteEndpointDataLossGracePeriodMinutes())
+            .append("\n\tRead-only endpoint policy: ").append(failoverGroup.readOnlyEndpointPolicy())
+            .append("\n\tReplication state: ").append(failoverGroup.replicationState())
+            .append("\n\tReplication role: ").append(failoverGroup.replicationRole());
+        builder.append("\n\tPartner Servers: ");
+        for (PartnerInfo item : failoverGroup.partnerServers()) {
+            builder
+                .append("\n\t\tId: ").append(item.id())
+                .append("\n\t\tLocation: ").append(item.location())
+                .append("\n\t\tReplication role: ").append(item.replicationRole());
+        }
+        builder.append("\n\tDatabases: ");
+        for (String databaseId : failoverGroup.databases()) {
+            builder.append("\n\t\tID: ").append(databaseId);
+        }
+
+        System.out.println(builder.toString());
+    }
+
+    /**
+     * Prints information for the passed SQL server key.
+     * @param serverKey virtual network rule to be printed.
+     */
+    public static void print(SqlServerKey serverKey) {
+        StringBuilder builder = new StringBuilder().append("SQL server key: ").append(serverKey.id())
+            .append("Name: ").append(serverKey.name())
+            .append("\n\tResource group: ").append(serverKey.resourceGroupName())
+            .append("\n\tSqlServer Name: ").append(serverKey.sqlServerName())
+            .append("\n\tRegion: ").append(serverKey.region() != null ? serverKey.region().name() : "")
+            .append("\n\tServer Key Type: ").append(serverKey.serverKeyType())
+            .append("\n\tServer Key URI: ").append(serverKey.uri())
+            .append("\n\tServer Key Thumbprint: ").append(serverKey.thumbprint())
+            .append("\n\tServer Key Creation Date: ").append(serverKey.creationDate() != null ? serverKey.creationDate().toString() : "");
 
         System.out.println(builder.toString());
     }
@@ -2616,6 +2751,125 @@ public final class Utils {
                 .append("\n\tNamespace: ").append(resource.namespaceName())
                 .append("\n\tEvent hub name: ").append(resource.eventHubName())
                 .append("\n\tUser metadata: ").append(resource.userMetadata());
+        System.out.println(info.toString());
+    }
+
+    /**
+     * Print Batch AI Cluster.
+     *
+     * @param resource batch ai cluster
+     */
+    public static void print(BatchAICluster resource) {
+        StringBuilder info = new StringBuilder("Batch AI cluster: ")
+                .append("\n\tId: ").append(resource.id())
+                .append("\n\tName: ").append(resource.name())
+                .append("\n\tResource group: ").append(resource.resourceGroupName())
+                .append("\n\tRegion: ").append(resource.regionName())
+                .append("\n\tVM Size: ").append(resource.vmSize())
+                .append("\n\tVM Priority: ").append(resource.vmPriority())
+                .append("\n\tSubnet: ").append(resource.subnet())
+                .append("\n\tAllocation state: ").append(resource.allocationState())
+                .append("\n\tAllocation state transition time: ").append(resource.allocationStateTransitionTime())
+                .append("\n\tCreation time: ").append(resource.creationTime())
+                .append("\n\tCurrent node count: ").append(resource.currentNodeCount())
+                .append("\n\tAllocation state transition time: ").append(resource.allocationStateTransitionTime())
+                .append("\n\tAllocation state transition time: ").append(resource.allocationStateTransitionTime());
+        if (resource.scaleSettings().autoScale() != null) {
+            info.append("\n\tAuto scale settings: ")
+                    .append("\n\t\tInitial node count: ").append(resource.scaleSettings().autoScale().initialNodeCount())
+                    .append("\n\t\tMinimum node count: ").append(resource.scaleSettings().autoScale().minimumNodeCount())
+                    .append("\n\t\tMaximum node count: ").append(resource.scaleSettings().autoScale().maximumNodeCount());
+        }
+        if (resource.scaleSettings().manual() != null) {
+            info.append("\n\tManual scale settings: ")
+                    .append("\n\t\tTarget node count: ").append(resource.scaleSettings().manual().targetNodeCount())
+                    .append("\n\t\tDeallocation option: ")
+                    .append(resource.scaleSettings().manual().nodeDeallocationOption());
+        }
+        if (resource.nodeStateCounts() != null) {
+            info.append("\n\tNode state counts: ")
+                    .append("\n\t\tRunning nodes count: ").append(resource.nodeStateCounts().runningNodeCount())
+                    .append("\n\t\tIdle nodes count: ").append(resource.nodeStateCounts().idleNodeCount())
+                    .append("\n\t\tPreparing nodes count: ").append(resource.nodeStateCounts().preparingNodeCount())
+                    .append("\n\t\tLeaving nodes count: ").append(resource.nodeStateCounts().leavingNodeCount())
+                    .append("\n\t\tPreparing nodes count: ").append(resource.nodeStateCounts().preparingNodeCount());
+        }
+        if (resource.virtualMachineConfiguration() != null && resource.virtualMachineConfiguration().imageReference() != null) {
+            info.append("\n\tVirtual machine configuration: ")
+                    .append("\n\t\tPublisher: ").append(resource.virtualMachineConfiguration().imageReference().publisher())
+                    .append("\n\t\tOffer: ").append(resource.virtualMachineConfiguration().imageReference().offer())
+                    .append("\n\t\tSku: ").append(resource.virtualMachineConfiguration().imageReference().sku())
+                    .append("\n\t\tVersion: ").append(resource.virtualMachineConfiguration().imageReference().version());
+        }
+        if (resource.nodeSetup() != null && resource.nodeSetup().setupTask() != null) {
+            info.append("\n\tSetup task: ")
+                    .append("\n\t\tCommand line: ").append(resource.nodeSetup().setupTask().commandLine())
+                    .append("\n\t\tRun elevated: ").append(resource.nodeSetup().setupTask().runElevated())
+                    .append("\n\t\tStdout/err Path Prefix: ").append(resource.nodeSetup().setupTask().stdOutErrPathPrefix());
+        }
+        System.out.println(info.toString());
+    }
+
+    /**
+     * Print Batch AI Job.
+     *
+     * @param resource batch ai job
+     */
+    public static void print(BatchAIJob resource) {
+        StringBuilder info = new StringBuilder("Batch AI job: ")
+                .append("\n\tId: ").append(resource.id())
+                .append("\n\tName: ").append(resource.name())
+                .append("\n\tResource group: ").append(resource.resourceGroupName())
+                .append("\n\tCluster Id: ").append(resource.cluster())
+                .append("\n\tCreation time: ").append(resource.creationTime())
+                .append("\n\tNode count: ").append(resource.nodeCount())
+                .append("\n\tPriority: ").append(resource.priority())
+                .append("\n\tExecution state: ").append(resource.executionState())
+                .append("\n\tExecution state transition time: ").append(resource.executionStateTransitionTime())
+                .append("\n\tTool type: ").append(resource.toolType())
+                .append("\n\tExperiment name: ").append(resource.experimentName());
+        System.out.println(info.toString());
+    }
+
+    /**
+     * Print Diagnostic Setting.
+     *
+     * @param resource Diagnostic Setting instance
+     */
+    public static void print(DiagnosticSetting resource) {
+        StringBuilder info = new StringBuilder("Diagnostic Setting: ")
+                .append("\n\tId: ").append(resource.id())
+                .append("\n\tAssociated resource Id: ").append(resource.resourceId())
+                .append("\n\tName: ").append(resource.name())
+                .append("\n\tStorage Account Id: ").append(resource.storageAccountId())
+                .append("\n\tEventHub Namespace Autorization Rule Id: ").append(resource.eventHubAuthorizationRuleId())
+                .append("\n\tEventHub name: ").append(resource.eventHubName())
+                .append("\n\tLog Analytics workspace Id: ").append(resource.workspaceId());
+        if (resource.logs() != null && !resource.logs().isEmpty()) {
+            info.append("\n\tLog Settings: ");
+            for (LogSettings ls : resource.logs()) {
+                info.append("\n\t\tCategory: ").append(ls.category());
+                info.append("\n\t\tRetention policy: ");
+                if (ls.retentionPolicy() != null) {
+                    info.append(ls.retentionPolicy().days() + " days");
+                } else {
+                    info.append("NONE");
+                }
+            }
+        }
+        if (resource.metrics() != null && !resource.metrics().isEmpty()) {
+            info.append("\n\tMetric Settings: ");
+            for (MetricSettings ls : resource.metrics()) {
+                info.append("\n\t\tCategory: ").append(ls.category());
+                info.append("\n\t\tTimegrain: ").append(ls.timeGrain());
+                info.append("\n\t\tRetention policy: ");
+                if (ls.retentionPolicy() != null) {
+                    info.append(ls.retentionPolicy().days() + " days");
+                } else {
+                    info.append("NONE");
+                }
+            }
+        }
         System.out.println(info.toString());
     }
 
