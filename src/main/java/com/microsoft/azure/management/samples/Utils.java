@@ -24,6 +24,7 @@ import com.microsoft.azure.management.batch.Application;
 import com.microsoft.azure.management.batch.ApplicationPackage;
 import com.microsoft.azure.management.batch.BatchAccount;
 import com.microsoft.azure.management.batch.BatchAccountKeys;
+import com.microsoft.azure.management.batchai.AzureFileShareReference;
 import com.microsoft.azure.management.batchai.BatchAICluster;
 import com.microsoft.azure.management.batchai.BatchAIJob;
 import com.microsoft.azure.management.compute.AvailabilitySet;
@@ -45,6 +46,8 @@ import com.microsoft.azure.management.containerservice.ContainerService;
 import com.microsoft.azure.management.containerservice.ContainerServiceOrchestratorTypes;
 import com.microsoft.azure.management.containerservice.KubernetesCluster;
 import com.microsoft.azure.management.cosmosdb.CosmosDBAccount;
+import com.microsoft.azure.management.cosmosdb.DatabaseAccountListKeysResult;
+import com.microsoft.azure.management.cosmosdb.DatabaseAccountListReadOnlyKeysResult;
 import com.microsoft.azure.management.dns.ARecordSet;
 import com.microsoft.azure.management.dns.AaaaRecordSet;
 import com.microsoft.azure.management.dns.CNameRecordSet;
@@ -72,7 +75,7 @@ import com.microsoft.azure.management.graphrbac.ActiveDirectoryUser;
 import com.microsoft.azure.management.graphrbac.RoleAssignment;
 import com.microsoft.azure.management.graphrbac.RoleDefinition;
 import com.microsoft.azure.management.graphrbac.ServicePrincipal;
-import com.microsoft.azure.management.graphrbac.implementation.PermissionInner;
+import com.microsoft.azure.management.graphrbac.Permission;
 import com.microsoft.azure.management.keyvault.AccessPolicy;
 import com.microsoft.azure.management.keyvault.Vault;
 import com.microsoft.azure.management.locks.ManagementLock;
@@ -2276,6 +2279,14 @@ public final class Utils {
                 .append("\n\tDefault consistency level: ").append(cosmosDBAccount.consistencyPolicy().defaultConsistencyLevel())
                 .append("\n\tIP range filter: ").append(cosmosDBAccount.ipRangeFilter());
 
+        DatabaseAccountListKeysResult keys = cosmosDBAccount.listKeys();
+        DatabaseAccountListReadOnlyKeysResult readOnlyKeys = cosmosDBAccount.listReadOnlyKeys();
+        builder
+            .append("\n\tPrimary Master Key: ").append(keys.primaryMasterKey())
+            .append("\n\tSecondary Master Key: ").append(keys.secondaryMasterKey())
+            .append("\n\tPrimary Read-Only Key: ").append(readOnlyKeys.primaryReadonlyMasterKey())
+            .append("\n\tSecondary Read-Only Key: ").append(readOnlyKeys.secondaryReadonlyMasterKey());
+
         for (com.microsoft.azure.management.cosmosdb.Location writeReplica : cosmosDBAccount.writableReplications()) {
             builder.append("\n\t\tWrite replication: ")
                     .append("\n\t\t\tName :").append(writeReplica.locationName());
@@ -2286,6 +2297,7 @@ public final class Utils {
             builder.append("\n\t\tRead replication: ")
                     .append("\n\t\t\tName :").append(readReplica.locationName());
         }
+
     }
 
     /**
@@ -2317,9 +2329,9 @@ public final class Utils {
                 .append("\n\tDescription: ").append(role.description())
                 .append("\n\tType: ").append(role.type());
 
-        Set<PermissionInner> permissions = role.permissions();
+        Set<Permission> permissions = role.permissions();
         builder.append("\n\tPermissions: ").append(permissions.size());
-        for (PermissionInner permission : permissions) {
+        for (Permission permission : permissions) {
             builder.append("\n\t\tPermission Actions: " + permission.actions().size());
             for (String action : permission.actions()) {
                 builder.append("\n\t\t\tName :").append(action);
@@ -2470,7 +2482,10 @@ public final class Utils {
      */
     public static void print(Topology resource) {
         StringBuilder sb = new StringBuilder().append("Topology: ").append(resource.id())
-                .append("\n\tResource group: ").append(resource.resourceGroupName())
+                .append("\n\tTopology parameters: ")
+                .append("\n\t\tResource group: ").append(resource.topologyParameters().targetResourceGroupName())
+                .append("\n\t\tVirtual network: ").append(resource.topologyParameters().targetVirtualNetwork() == null ? "" : resource.topologyParameters().targetVirtualNetwork().id())
+                .append("\n\t\tSubnet id: ").append(resource.topologyParameters().targetSubnet() == null ? "" : resource.topologyParameters().targetSubnet().id())
                 .append("\n\tCreated time: ").append(resource.createdTime())
                 .append("\n\tLast modified time: ").append(resource.lastModifiedTime());
         for (TopologyResource tr : resource.resources().values()) {
@@ -2763,8 +2778,8 @@ public final class Utils {
         StringBuilder info = new StringBuilder("Batch AI cluster: ")
                 .append("\n\tId: ").append(resource.id())
                 .append("\n\tName: ").append(resource.name())
-                .append("\n\tResource group: ").append(resource.resourceGroupName())
-                .append("\n\tRegion: ").append(resource.regionName())
+                .append("\n\tResource group: ").append(resource.workspace().resourceGroupName())
+                .append("\n\tRegion: ").append(resource.workspace().regionName())
                 .append("\n\tVM Size: ").append(resource.vmSize())
                 .append("\n\tVM Priority: ").append(resource.vmPriority())
                 .append("\n\tSubnet: ").append(resource.subnet())
@@ -2804,7 +2819,6 @@ public final class Utils {
         if (resource.nodeSetup() != null && resource.nodeSetup().setupTask() != null) {
             info.append("\n\tSetup task: ")
                     .append("\n\t\tCommand line: ").append(resource.nodeSetup().setupTask().commandLine())
-                    .append("\n\t\tRun elevated: ").append(resource.nodeSetup().setupTask().runElevated())
                     .append("\n\t\tStdout/err Path Prefix: ").append(resource.nodeSetup().setupTask().stdOutErrPathPrefix());
         }
         System.out.println(info.toString());
@@ -2819,15 +2833,27 @@ public final class Utils {
         StringBuilder info = new StringBuilder("Batch AI job: ")
                 .append("\n\tId: ").append(resource.id())
                 .append("\n\tName: ").append(resource.name())
-                .append("\n\tResource group: ").append(resource.resourceGroupName())
                 .append("\n\tCluster Id: ").append(resource.cluster())
                 .append("\n\tCreation time: ").append(resource.creationTime())
                 .append("\n\tNode count: ").append(resource.nodeCount())
-                .append("\n\tPriority: ").append(resource.priority())
+                .append("\n\tPriority: ").append(resource.schedulingPriority())
                 .append("\n\tExecution state: ").append(resource.executionState())
                 .append("\n\tExecution state transition time: ").append(resource.executionStateTransitionTime())
                 .append("\n\tTool type: ").append(resource.toolType())
-                .append("\n\tExperiment name: ").append(resource.experimentName());
+                .append("\n\tExperiment name: ").append(resource.experiment().name());
+        if (resource.mountVolumes() != null) {
+            info.append("\n\tMount volumes:");
+            if (resource.mountVolumes().azureFileShares() != null) {
+                info.append("\n\t\tAzure fileshares:");
+                for (AzureFileShareReference share : resource.mountVolumes().azureFileShares()) {
+                    info.append("\n\t\t\tAccount name:").append(share.accountName())
+                            .append("\n\t\t\tFile Url:").append(share.azureFileUrl())
+                            .append("\n\t\t\tDirectory mode:").append(share.directoryMode())
+                            .append("\n\t\t\tFile mode:").append(share.fileMode())
+                            .append("\n\t\t\tRelative mount path:").append(share.relativeMountPath());
+                }
+            }
+        }
         System.out.println(info.toString());
     }
 
