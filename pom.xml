@@ -53,7 +53,7 @@
     <dependency>
       <groupId>com.microsoft.azure</groupId>
       <artifactId>azure</artifactId>
-      <version>1.16.0</version>
+      <version>1.22.0</version>
     </dependency>
     <dependency>
       <groupId>commons-net</groupId>
