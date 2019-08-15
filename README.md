@@ -4,12 +4,12 @@ languages:
 - java
 products:
 - azure
-services: Graphrbac
-platforms: java
-author: yaohaizh
+extensions:
+- services: Graphrbac
+- platforms: java
 ---
 
-## Getting Started with Graphrbac - Manage Users Groups And Roles - in Java ##
+# Getting Started with Graphrbac - Manage Users Groups And Roles - in Java #
 
 
   Azure Users, Groups and Roles sample.
