@@ -4,9 +4,8 @@ languages:
 - java
 products:
 - azure
-extensions:
-- services: Graphrbac
-- platforms: java
+description: "Azure Users, Groups and Roles sample."
+urlFragment: aad-java-manage-users-groups-and-roles
 ---
 
 # Getting Started with Graphrbac - Manage Users Groups And Roles - in Java #
