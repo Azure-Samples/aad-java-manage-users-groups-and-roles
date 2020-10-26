@@ -1,23 +1,24 @@
-/**
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for
- * license information.
- */
-package com.microsoft.azure.management.graphrbac.samples;
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
-import com.microsoft.azure.credentials.ApplicationTokenCredentials;
-import com.microsoft.azure.management.Azure;
-import com.microsoft.azure.management.graphrbac.ActiveDirectoryGroup;
-import com.microsoft.azure.management.graphrbac.ActiveDirectoryUser;
-import com.microsoft.azure.management.graphrbac.BuiltInRole;
-import com.microsoft.azure.management.graphrbac.RoleAssignment;
-import com.microsoft.azure.management.graphrbac.RoleDefinition;
-import com.microsoft.azure.management.graphrbac.ServicePrincipal;
-import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext;
-import com.microsoft.azure.management.samples.Utils;
-import com.microsoft.rest.LogLevel;
+package com.azure.resourcemanager.authorization.samples;
 
-import java.io.File;
+import com.azure.core.credential.TokenCredential;
+import com.azure.core.http.policy.HttpLogDetailLevel;
+import com.azure.core.management.AzureEnvironment;
+import com.azure.identity.DefaultAzureCredentialBuilder;
+import com.azure.core.management.profile.AzureProfile;
+import com.azure.resourcemanager.AzureResourceManager;
+import com.azure.resourcemanager.authorization.models.ActiveDirectoryGroup;
+import com.azure.resourcemanager.authorization.models.ActiveDirectoryUser;
+import com.azure.resourcemanager.authorization.models.BuiltInRole;
+import com.azure.resourcemanager.authorization.models.RoleAssignment;
+import com.azure.resourcemanager.authorization.models.RoleDefinition;
+import com.azure.resourcemanager.authorization.models.ServicePrincipal;
+import com.azure.resourcemanager.resources.fluentcore.utils.ResourceManagerUtils;
+import com.azure.resourcemanager.samples.Utils;
+
+import java.time.Duration;
 
 /**
  * Azure Users, Groups and Roles sample.
@@ -34,18 +35,18 @@ public final class ManageUsersGroupsAndRoles {
     /**
      * Main function which runs the actual sample.
      *
-     * @param authenticated instance of Authenticated
-     * @param defaultSubscription default subscription id
+     * @param azureResourceManager instance of AzureResourceManager
+     * @param profile the profile works with sample
      * @return true if sample runs successfully
      */
-    public static boolean runSample(Azure.Authenticated authenticated, String defaultSubscription) {
-        final String userEmail = Utils.createRandomName("test");
+    public static boolean runSample(AzureResourceManager azureResourceManager, AzureProfile profile) {
+        final String userEmail = Utils.randomResourceName(azureResourceManager, "test", 15);
         final String userName = userEmail.replace("test", "Test ");
-        final String spName = Utils.createRandomName("sp");
-        final String raName1 = SdkContext.randomUuid();
-        final String raName2 = SdkContext.randomUuid();
-        final String groupEmail1 = Utils.createRandomName("group1");
-        final String groupEmail2 = Utils.createRandomName("group2");
+        final String spName = Utils.randomResourceName(azureResourceManager, "sp", 15);
+        final String raName1 = Utils.randomUuid(azureResourceManager);
+        final String raName2 = Utils.randomUuid(azureResourceManager);
+        final String groupEmail1 = Utils.randomResourceName(azureResourceManager, "group1", 15);
+        final String groupEmail2 = Utils.randomResourceName(azureResourceManager, "group2", 15);
         final String groupName1 = groupEmail1.replace("group1", "Group ");
         final String groupName2 = groupEmail2.replace("group2", "Group ");
         String spId = "";
@@ -55,7 +56,7 @@ public final class ManageUsersGroupsAndRoles {
 
             System.out.println("Creating an AD user " + userName + "...");
 
-            ActiveDirectoryUser user = authenticated.activeDirectoryUsers()
+            ActiveDirectoryUser user = azureResourceManager.accessManagement().activeDirectoryUsers()
                     .define(userName)
                     .withEmailAlias(userEmail)
                     .withPassword("StrongPass!12")
@@ -67,11 +68,11 @@ public final class ManageUsersGroupsAndRoles {
             // ============================================================
             // Assign role to AD user
 
-            RoleAssignment roleAssignment1 = authenticated.roleAssignments()
+            RoleAssignment roleAssignment1 = azureResourceManager.accessManagement().roleAssignments()
                     .define(raName1)
                     .forUser(user)
                     .withBuiltInRole(BuiltInRole.READER)
-                    .withSubscriptionScope(defaultSubscription)
+                    .withSubscriptionScope(profile.getSubscriptionId())
                     .create();
             System.out.println("Created Role Assignment:");
             Utils.print(roleAssignment1);
@@ -79,24 +80,24 @@ public final class ManageUsersGroupsAndRoles {
             // ============================================================
             // Revoke role from AD user
 
-            authenticated.roleAssignments().deleteById(roleAssignment1.id());
+            azureResourceManager.accessManagement().roleAssignments().deleteById(roleAssignment1.id());
             System.out.println("Revoked Role Assignment: " + roleAssignment1.id());
 
             // ============================================================
             // Get role by scope and role name
 
-            RoleDefinition roleDefinition = authenticated.roleDefinitions()
-                    .getByScopeAndRoleName("subscriptions/" + defaultSubscription, "Contributor");
+            RoleDefinition roleDefinition = azureResourceManager.accessManagement().roleDefinitions()
+                    .getByScopeAndRoleName("subscriptions/" + profile.getSubscriptionId(), "Contributor");
             Utils.print(roleDefinition);
 
             // ============================================================
             // Create Service Principal
 
-            ServicePrincipal sp = authenticated.servicePrincipals().define(spName)
+            ServicePrincipal sp = azureResourceManager.accessManagement().servicePrincipals().define(spName)
                     .withNewApplication("http://" + spName)
                     .create();
             // wait till service principal created and propagated
-            SdkContext.sleep(15000);
+            ResourceManagerUtils.sleep(Duration.ofSeconds(15));
             System.out.println("Created Service Principal:");
             Utils.print(sp);
             spId = sp.id();
@@ -104,11 +105,11 @@ public final class ManageUsersGroupsAndRoles {
             // ============================================================
             // Assign role to Service Principal
 
-            RoleAssignment roleAssignment2 = authenticated.roleAssignments()
+            RoleAssignment roleAssignment2 = azureResourceManager.accessManagement().roleAssignments()
                     .define(raName2)
                     .forServicePrincipal(sp)
                     .withBuiltInRole(BuiltInRole.CONTRIBUTOR)
-                    .withSubscriptionScope(defaultSubscription)
+                    .withSubscriptionScope(profile.getSubscriptionId())
                     .create();
             System.out.println("Created Role Assignment:");
             Utils.print(roleAssignment2);
@@ -117,7 +118,7 @@ public final class ManageUsersGroupsAndRoles {
             // Create Active Directory groups
 
             System.out.println("Creating Active Directory group " + groupName1 + "...");
-            ActiveDirectoryGroup group1 = authenticated.activeDirectoryGroups()
+            ActiveDirectoryGroup group1 = azureResourceManager.accessManagement().activeDirectoryGroups()
                     .define(groupName1)
                     .withEmailAlias(groupEmail1)
                     .create();
@@ -126,7 +127,7 @@ public final class ManageUsersGroupsAndRoles {
             Utils.print(group1);
 
             System.out.println("Creating Active Directory group " + groupName2 + "...");
-            ActiveDirectoryGroup group2 = authenticated.activeDirectoryGroups()
+            ActiveDirectoryGroup group2 = azureResourceManager.accessManagement().activeDirectoryGroups()
                     .define(groupName2)
                     .withEmailAlias(groupEmail2)
                     .create();
@@ -144,20 +145,15 @@ public final class ManageUsersGroupsAndRoles {
             Utils.print(group2);
 
             return true;
-        } catch (Exception f) {
-            System.out.println(f.getMessage());
-            f.printStackTrace();
         } finally {
             try {
                 System.out.println("Deleting Service Principal: " + spName);
-                authenticated.servicePrincipals().deleteById(spId);
+                azureResourceManager.accessManagement().servicePrincipals().deleteById(spId);
                 System.out.println("Deleted Service Principal: " + spName);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 System.out.println("Did not create Service Principal in Azure. No clean up is necessary");
             }
         }
-        return false;
     }
 
     /**
@@ -167,13 +163,18 @@ public final class ManageUsersGroupsAndRoles {
      */
     public static void main(String[] args) {
         try {
-            final File credFile = new File(System.getenv("AZURE_AUTH_LOCATION"));
-            ApplicationTokenCredentials credentials = ApplicationTokenCredentials.fromFile(credFile);
-            Azure.Authenticated authenticated = Azure.configure()
-                    .withLogLevel(LogLevel.BODY)
-                    .authenticate(credentials);
+            final AzureProfile profile = new AzureProfile(AzureEnvironment.AZURE);
+            final TokenCredential credential = new DefaultAzureCredentialBuilder()
+                .authorityHost(profile.getEnvironment().getActiveDirectoryEndpoint())
+                .build();
 
-            runSample(authenticated, credentials.defaultSubscriptionId());
+            AzureResourceManager azureResourceManager = AzureResourceManager
+                .configure()
+                .withLogLevel(HttpLogDetailLevel.BASIC)
+                .authenticate(credential, profile)
+                .withDefaultSubscription();
+
+            runSample(azureResourceManager, profile);
         } catch (Exception e) {
             System.out.println(e.getMessage());
             e.printStackTrace();
