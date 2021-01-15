@@ -5,8 +5,8 @@ languages:
 products:
 - azure
 extensions:
-  services: Graphrbac
-  platforms: java
+- services: Graphrbac
+- platforms: java
 ---
 
 # Getting Started with Graphrbac - Manage Users Groups And Roles - in Java #
