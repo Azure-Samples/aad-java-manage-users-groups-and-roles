@@ -39,6 +39,8 @@ See [DefaultAzureCredential](https://github.com/Azure/azure-sdk-for-java/tree/ma
 
 For general documentation as well as quickstarts on how to use Azure Management Libraries for Java, please see [here](https://aka.ms/azsdk/java/mgmt).
 
+If you find bug in the sample, please create an issue [here](https://github.com/Azure/azure-sdk-for-java/issues).
+
 Start to develop applications with Java on Azure [here](http://azure.com/java).
 
 If you don't have a Microsoft Azure subscription you can get a FREE trial account [here](http://go.microsoft.com/fwlink/?LinkId=330212).
